@@ -207,9 +207,7 @@ for epoch in range(1, num_epochs + 1):
         sys.stdout.write("\b" * num_back)
         sys.stdout.write(" " * num_back)
         sys.stdout.write("\b" * num_back)
-        print('train: %d loss: %.4f, time: %.2fs' % (num_batches[i], train_err / train_total, time.time() - start_time))
-        if i == 0:
-            print('\n')
+        print('train: %d loss: %.4f, time: %.2fs\n' % (num_batches[i], train_err / train_total, time.time() - start_time))
     acc_list = []
     precision_list = []
     recall_list = []
