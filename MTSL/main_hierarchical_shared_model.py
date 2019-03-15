@@ -135,7 +135,7 @@ else:
     word_table = io_utils.construct_word_embedding_table(embedd_dict, embedd_dim, word_word2index)
 
 logger.info("constructing network...")
-network = hierarchical_shared_model.hierarchical_shared_model(
+network = hierarchical_shared_model.HierarchicalSharedModel(
     embedd_dim, word_word2index.size(), char_dim, char_word2index.size(), num_labels, num_filters, window, rnn_mode,
     hidden_size, num_layers, embedd_word=word_table, p_in=p_in, p_out=p_out, p_rnn=p_rnn, lm_loss=lm_loss,
     bigram=bigram, use_crf=use_crf, use_elmo=use_elmo, use_lm=use_lm)
