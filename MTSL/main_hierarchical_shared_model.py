@@ -97,7 +97,7 @@ embedd_dict, embedd_dim = embedding.load_embedding_dict(embedding_path)
 logger.info("Creating Word2Indexs")
 word_word2index, char_word2index, label_word2index_list, = \
     io_utils.create_word2indexs(word2index_path, train_path, label_type,
-                                data_paths=[[dev, test] for dev, test in zip(dev_path, test_path)],
+                                test_paths=[[dev, test] for dev, test in zip(dev_path, test_path)],
                                 embedd_dict=embedd_dict, max_vocabulary_size=60000)
 
 logger.info("Word Word2Index Size: %d" % word_word2index.size())
