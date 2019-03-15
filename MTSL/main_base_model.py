@@ -39,6 +39,7 @@ parser.add_argument('--use_crf', help='use crf')
 parser.add_argument('--use_lm', help='use lm')
 parser.add_argument('--use_elmo', help='use elmo')
 parser.add_argument('--lm_loss', type=float, default=0.05, help='lm loss scale')
+parser.add_argument('--label_type', nargs=2, help='label type')
 parser.add_argument('--train', nargs=1)
 parser.add_argument('--dev', nargs=1)
 parser.add_argument('--test', nargs=1)
@@ -70,7 +71,7 @@ num_layers = args.num_layers
 window = args.window
 momentum = args.momentum
 out_path = args.out_path
-label_type = ['ner']
+label_type = args.label_type
 use_lm = args.use_lm
 use_crf = args.use_crf
 use_elmo = args.use_elmo
