@@ -75,9 +75,6 @@ label_type = ['ner']
 use_lm = args.use_lm
 use_crf = args.use_crf
 use_elmo = args.use_elmo
-print("use_lm: %s") % str(use_lm)
-print("use_crf: %s") % str(use_crf)
-print("use_elmo: %s") % str(use_elmo)
 if use_lm == 'True':
     use_lm = True
 elif use_lm == 'False':
@@ -90,6 +87,9 @@ if use_elmo == 'True':
     use_elmo = True
 elif use_elmo == 'False':
     use_elmo = False
+print("use_lm: %s" % use_lm)
+print("use_crf: %s" % use_crf)
+print("use_elmo: %s" % use_elmo)
 lm_loss = args.lm_loss
 
 logger = logger.get_logger("Base Model")
