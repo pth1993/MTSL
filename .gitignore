@@ -1,0 +1,11 @@
+*.pyc
+.DS_Store
+.idea/*
+*.json
+*.txt
+*.hdf5
+MTSL/output/*
+MTSL/data/fgner
+MTSL/data/ner
+MTSL/data/ontonotes
+MTSL/data/pos
