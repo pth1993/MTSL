@@ -10,8 +10,9 @@ from allennlp.modules.elmo import Elmo
 class HierarchicalSharedModel(nn.Module):
     def __init__(self, word_dim, num_words, char_dim, num_chars, num_labels, num_filters,
                  kernel_size, rnn_mode, hidden_size, num_layers, embedd_word=None, p_in=0.33, p_out=0.5,
-                 p_rnn=(0.5, 0.5), bigram=True, use_crf=True, use_lm=True, use_elmo=False):
+                 p_rnn=(0.5, 0.5), lm_loss=0.05, bigram=True, use_crf=True, use_lm=True, use_elmo=False):
         super(HierarchicalSharedModel, self).__init__()
+        self.lm_loss = lm_loss
         self.use_elmo = use_elmo
         if self.use_elmo:
             option_file, weight_file = embedd_word
@@ -42,37 +43,24 @@ class HierarchicalSharedModel(nn.Module):
                          bidirectional=True, dropout=p_rnn[1])
         self.rnn_2 = RNN(word_dim + num_filters + hidden_size*2, hidden_size, num_layers=num_layers, batch_first=True,
                          bidirectional=True, dropout=p_rnn[1])
-        # self.rnn_3 = RNN(word_dim + num_filters + hidden_size*2, hidden_size, num_layers=num_layers, batch_first=True,
-        #                  bidirectional=True, dropout=p_rnn[1])
         if self.use_crf:
             self.crf_1 = ChainCRF(hidden_size * 2, num_labels[0], bigram=bigram)
             self.crf_2 = ChainCRF(hidden_size * 2, num_labels[1], bigram=bigram)
-            # self.crf_3 = ChainCRF(hidden_size * 2, num_labels[2], bigram=bigram)
         else:
             self.dense_softmax_1 = nn.Linear(hidden_size * 2, num_labels[0])
             self.dense_softmax_2 = nn.Linear(hidden_size * 2, num_labels[1])
-            # self.dense_softmax_3 = nn.Linear(hidden_size * 2, num_labels[2])
-            self.logsoftmax = nn.LogSoftmax(dim=1)
-            self.nll_loss = nn.NLLLoss(size_average=False, reduce=False)
         if self.use_lm:
             self.dense_fw_1 = nn.Linear(hidden_size, num_words)
             self.dense_bw_1 = nn.Linear(hidden_size, num_words)
             self.dense_fw_2 = nn.Linear(hidden_size, num_words)
             self.dense_bw_2 = nn.Linear(hidden_size, num_words)
-            if self.use_crf:
-                self.logsoftmax = nn.LogSoftmax(dim=1)
-                self.nll_loss = nn.NLLLoss(size_average=False, reduce=False)
+        self.logsoftmax = nn.LogSoftmax(dim=1)
+        self.nll_loss = nn.NLLLoss(size_average=False, reduce=False)
 
-    def _get_rnn_output(self, input_word, input_char, task, mask=None, length=None, hx=None):
-        # hack length from mask
-        # we do not hack mask from length for special reasons.
-        # Thus, always provide mask if it is necessary.
-        if length is None and mask is not None:
-            length = mask.data.sum(dim=1).long()
+    def _get_rnn_output(self, input_word, input_char, main_task, mask, hx=None):
+        length = mask.data.sum(dim=1).long()
         if self.use_elmo:
             input = self.elmo(input_word)
-            # mask = input['mask']
-            # mask = mask.float()
             input = input['elmo_representations'][1]
         else:
             # [batch, length, word_dim]
@@ -96,96 +84,78 @@ class HierarchicalSharedModel(nn.Module):
         # apply dropout
         input = self.dropout_rnn_in(input)
         # prepare packed_sequence
-        if length is not None:
-            seq_input, hx, rev_order, mask, lens = utils.prepare_rnn_seq(input, length, hx=hx, masks=mask, batch_first=True)
-            if task in ['chunk', 'ner', 'pos', 'ontonotes', 'fgner']:
-                seq_output, hn = self.rnn_1(seq_input, hx=hx)
-                seq_input, _ = rnn_utils.pad_packed_sequence(seq_input, batch_first=True)
-            if task in ['fgner']:
-                seq_output, _ = rnn_utils.pad_packed_sequence(seq_output, batch_first=True)
-                output_size = seq_output.size()
-                seq_output = seq_output.view(output_size[0], output_size[1], 2, -1)
-                hidden_fw = seq_output[:, :, 0]
-                hidden_bw = seq_output[:, :, 1]
-                hidden_input = torch.cat((seq_input, hidden_fw, hidden_bw), 2)
-                hidden_input = rnn_utils.pack_padded_sequence(hidden_input, lens, batch_first=True)
-                seq_output, hn = self.rnn_2(hidden_input, hx=hx)
-            # if task in ['fgner']:
-            #     seq_output, _ = rnn_utils.pad_packed_sequence(seq_output, batch_first=True)
-            #     output_size = seq_output.size()
-            #     seq_output = seq_output.view(output_size[0], output_size[1], 2, -1)
-            #     hidden_fw = seq_output[:, :, 0]
-            #     hidden_bw = seq_output[:, :, 1]
-            #     hidden_input = torch.cat((seq_input, hidden_fw, hidden_bw), 2)
-            #     hidden_input = rnn_utils.pack_padded_sequence(hidden_input, lens, batch_first=True)
-            #     seq_output, hn = self.rnn_3(hidden_input, hx=hx)
-            output, hn = utils.recover_rnn_seq(seq_output, rev_order, hx=hn, batch_first=True)
+        seq_input, hx, rev_order, mask, lens = utils.prepare_rnn_seq(input, length, hx=hx, masks=mask, batch_first=True)
+        seq_output, hn = self.rnn_1(seq_input, hx=hx)
+        seq_input, _ = rnn_utils.pad_packed_sequence(seq_input, batch_first=True)
+        if main_task:
+            seq_output, _ = rnn_utils.pad_packed_sequence(seq_output, batch_first=True)
+            output_size = seq_output.size()
+            seq_output = seq_output.view(output_size[0], output_size[1], 2, -1)
+            hidden_fw = seq_output[:, :, 0]
+            hidden_bw = seq_output[:, :, 1]
+            hidden_input = torch.cat((seq_input, hidden_fw, hidden_bw), 2)
+            hidden_input = rnn_utils.pack_padded_sequence(hidden_input, lens, batch_first=True)
+            seq_output, hn = self.rnn_2(hidden_input, hx=hx)
+        output, hn = utils.recover_rnn_seq(seq_output, rev_order, hx=hn, batch_first=True)
         output = self.dropout_out(output)
         if self.use_lm:
             output_size = output.size()
-            output_lm = output.view(output_size[0], output_size[1], 2, -1)
-            output_fw = output_lm[:, :, 0]
-            output_bw = output_lm[:, :, 1]
-            return output, hn, mask, length, output_fw, output_bw
+            lm = output.view(output_size[0], output_size[1], 2, -1)
+            lm_fw = lm[:, :, 0]
+            lm_bw = lm[:, :, 1]
+            return output, hn, mask, length, lm_fw, lm_bw
         else:
             return output, hn, mask, length
 
-    def forward(self, input_word, input_char, mask=None, length=None, hx=None):
+    def forward(self, input_word, input_char, main_task, mask=None, length=None, hx=None):
         # output from rnn [batch, length, tag_space]
-        output, _, mask, length = self._get_rnn_output(input_word, input_char, mask=mask, length=length, hx=hx)
+        output, _, mask, length = self._get_rnn_output(input_word, input_char, main_task, mask=mask, hx=hx)
         # [batch, length, num_label,  num_label]
         return self.crf(output, mask=mask), mask
 
-    def loss(self, input_word, input_char, target, task, target_fw, target_bw, mask=None, length=None, hx=None, leading_symbolic=0):
+    def loss(self, input_word, input_char, target, main_task, target_fw, target_bw, mask, hx=None, leading_symbolic=0):
         # output from rnn [batch, length, tag_space]
         if self.use_lm:
-            output, _, mask, length, output_fw, output_bw = self._get_rnn_output(input_word, input_char, task, mask=mask, length=length, hx=hx)
-            if task == 'fgner':
-                output_fw = self.dense_fw_2(output_fw)
-                output_bw = self.dense_bw_2(output_bw)
+            output, _, mask, length, lm_fw, lm_bw = self._get_rnn_output(input_word, input_char, main_task, ask, hx=hx)
+            if main_task:
+                lm_fw = self.dense_fw_2(lm_fw)
+                lm_bw = self.dense_bw_2(lm_bw)
             else:
-                output_fw = self.dense_fw_1(output_fw)
-                output_bw = self.dense_bw_1(output_bw)
-            output_size = output_fw.size()
+                lm_fw = self.dense_fw_1(lm_fw)
+                lm_bw = self.dense_bw_1(lm_bw)
+            output_size = lm_fw.size()
             output_size = (output_size[0] * output_size[1], output_size[2])
-            output_fw = output_fw.view(output_size)
-            output_bw = output_bw.view(output_size)
-        else:
-            output, _, mask, length = self._get_rnn_output(input_word, input_char, task, mask=mask, length=length, hx=hx)
-        if length is not None:
+            lm_fw = lm_fw.view(output_size)
+            lm_bw = lm_bw.view(output_size)
             max_len = length.max()
-            target = target[:, :max_len]
-            if self.use_lm:
-                target_fw = target_fw[:, :max_len].contiguous()
-                target_bw = target_bw[:, :max_len].contiguous()
+            target_fw = target_fw[:, :max_len].contiguous()
+            target_bw = target_bw[:, :max_len].contiguous()
+            fw_loss = (self.nll_loss(self.logsoftmax(lm_fw), target_fw.view(-1)) * mask.contiguous().view(
+                -1)).sum() / mask.sum()
+            bw_loss = (self.nll_loss(self.logsoftmax(lm_bw), target_bw.view(-1)) * mask.contiguous().view(
+                -1)).sum() / mask.sum()
+        else:
+            output, _, mask, length = self._get_rnn_output(input_word, input_char, main_task, mask, hx=hx)
+            max_len = length.max()
+        target = target[:, :max_len]
         # [batch, length, num_label,  num_label]
         if self.use_crf:
             if self.use_lm:
-                fw_loss = (self.nll_loss(self.logsoftmax(output_fw), target_fw.view(-1)) * mask.contiguous().view(
-                    -1)).sum() / mask.sum()
-                bw_loss = (self.nll_loss(self.logsoftmax(output_bw), target_bw.view(-1)) * mask.contiguous().view(
-                    -1)).sum() / mask.sum()
-                if task in ['chunk', 'ner', 'pos', 'ontonotes']:
-                    return self.crf_1.loss(output, target, mask=mask).mean() + 0.05 * (fw_loss + bw_loss)
-                elif task == 'fgner':
-                    return self.crf_2.loss(output, target, mask=mask).mean() + 0.05 * (fw_loss + bw_loss)
-                # elif task == 'fgner':
-                #     return self.crf_3.loss(output, target, mask=mask).mean() + 0.05 * (fw_loss + bw_loss)
+                if main_task:
+                    return self.crf_2.loss(output, target, mask=mask).mean() + self.lm_loss * (fw_loss + bw_loss)
+                else:
+                    return self.crf_1.loss(output, target, mask=mask).mean() + self.lm_loss * (fw_loss + bw_loss)
             else:
-                if task == 'source':
-                    return self.crf_1.loss(output, target, mask=mask).mean()
-                elif task == 'target':
+                if main_task:
                     return self.crf_2.loss(output, target, mask=mask).mean()
-                # elif task == 'fgner':
-                #     return self.crf_3.loss(output, target, mask=mask).mean()
+                else:
+                    return self.crf_1.loss(output, target, mask=mask).mean()
         else:
             target = target.contiguous()
-            if task in ['chunk', 'ner', 'pos', 'ontonotes']:
-                output = self.dense_softmax_1(output)
-            elif task == 'fgner':
+            if main_task:
                 output = self.dense_softmax_2(output)
-            # elif task == 'fgner':
-            #     output = self.dense_softmax_3(output)
+            else:
+                output = self.dense_softmax_1(output)
             # preds = [batch, length]
             _, preds = torch.max(output[:, :, leading_symbolic:], dim=2)
             preds += leading_symbolic
@@ -194,38 +164,24 @@ class HierarchicalSharedModel(nn.Module):
             output_size = (output_size[0] * output_size[1], output_size[2])
             output = output.view(output_size)
             if self.use_lm:
-                fw_loss = (self.nll_loss(self.logsoftmax(output_fw), target_fw.view(-1)) * mask.contiguous().view(
-                    -1)).sum() / mask.sum()
-                bw_loss = (self.nll_loss(self.logsoftmax(output_bw), target_bw.view(-1)) * mask.contiguous().view(
-                    -1)).sum() / mask.sum()
-                return (self.nll_loss(self.logsoftmax(output), target.view(-1)) * mask.contiguous().view(-1)).sum() + 0.05 * (fw_loss + bw_loss) / mask.sum(), preds
+                return (self.nll_loss(self.logsoftmax(output), target.view(-1)) * mask.contiguous().view(-1)).sum() / \
+                       mask.sum() + self.lm_loss * (fw_loss + bw_loss), preds
             else:
-                return (self.nll_loss(self.logsoftmax(output), target.view(-1)) * mask.contiguous().view(-1)).sum() / mask.sum(), preds
+                return (self.nll_loss(self.logsoftmax(output), target.view(-1)) * mask.contiguous().view(-1)).sum() / \
+                       mask.sum(), preds
 
-    def decode(self, input_word, input_char, task, target=None, mask=None, length=None, hx=None, leading_symbolic=0):
+    def decode(self, input_word, input_char, target, main_task, mask, hx=None, leading_symbolic=0):
         # output from rnn [batch, length, tag_space]
         if self.use_lm:
-            output, _, mask, length, output_fw, output_bw = self._get_rnn_output(input_word, input_char, task, mask=mask, length=length, hx=hx)
+            output, _, mask, length, lm_fw, lm_bw = self._get_rnn_output(input_word, input_char, main_task,
+                                                                                 mask, hx=hx)
         else:
-            output, _, mask, length,  = self._get_rnn_output(input_word, input_char, task, mask=mask, length=length, hx=hx)
-        if target is None:
-            if task in ['chunk', 'ner', 'pos', 'ontonotes']:
-                return self.crf_1.decode(output, mask=mask, leading_symbolic=leading_symbolic), None
-            elif task == 'fgner':
-                return self.crf_2.decode(output, mask=mask, leading_symbolic=leading_symbolic), None
-            # elif task == 'fgner':
-            #     return self.crf_3.decode(output, mask=mask, leading_symbolic=leading_symbolic), None
+            output, _, mask, length,  = self._get_rnn_output(input_word, input_char, main_task, mask, hx=hx)
         if length is not None:
             max_len = length.max()
             target = target[:, :max_len]
-        if task in ['chunk', 'ner', 'pos', 'ontonotes']:
-            preds = self.crf_1.decode(output, mask=mask, leading_symbolic=leading_symbolic)
-        elif task == 'fgner':
+        if main_task:
             preds = self.crf_2.decode(output, mask=mask, leading_symbolic=leading_symbolic)
-        # elif task == 'fgner':
-        #     preds = self.crf_3.decode(output, mask=mask, leading_symbolic=leading_symbolic)
-        if mask is None:
-            return preds, torch.eq(preds, target.data).float().sum()
         else:
-            return preds, (torch.eq(preds, target.data).float() * mask.data).sum()
-
+            preds = self.crf_1.decode(output, mask=mask, leading_symbolic=leading_symbolic)
+        return preds, (torch.eq(preds, target.data).float() * mask.data).sum()

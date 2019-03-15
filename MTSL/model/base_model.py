@@ -55,8 +55,6 @@ class BaseModel(nn.Module):
         # [batch, length, word_dim]
         if self.use_elmo:
             input = self.elmo(input_word)
-            # mask = input['mask']
-            # mask = mask.float()
             input = input['elmo_representations'][1]
         else:
             # [batch, length, word_dim]
