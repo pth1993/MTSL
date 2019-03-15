@@ -4,6 +4,6 @@ CUDA_VISIBLE_DEVICES=0 python3 main_base_model.py --rnn_mode LSTM --num_epochs 2
  --gamma 0.0 --p_in 0.33 --p_rnn 0.5 0.5 --p_out 0.5 --bigram --lm_loss 0.05 \
  --embedding_path "data/embedding/glove_embedding.txt" --option_path "data/embedding/elmo_option.json" \
  --weight_path "data/embedding/elmo_weight.hdf5" --word2index_path "output/base_model/word2index" \
- --out_path "output/base_model" --use_crf "False" --use_lm "False" --use_elmo "True" --train "data/ner/train.ner" \
+ --out_path "output/base_model" --use_crf "False" --use_lm "False" --use_elmo "False" --train "data/ner/train.ner" \
  --dev "data/ner/dev.ner" \
  --test "data/ner/test.ner"
