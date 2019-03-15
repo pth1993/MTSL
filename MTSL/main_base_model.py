@@ -75,9 +75,9 @@ label_type = ['ner']
 use_lm = args.use_lm
 use_crf = args.use_crf
 use_elmo = args.use_elmo
-print(use_lm)
-print(use_crf)
-print(use_elmo)
+print("use_lm: %s") % use_lm
+print("use_crf: %s") % use_crf
+print("use_elmo: %s") % use_elmo
 if use_lm == 'True':
     use_lm = True
 elif use_lm == 'False':
@@ -93,10 +93,10 @@ elif use_elmo == 'False':
 lm_loss = args.lm_loss
 
 logger = logger.get_logger("Base Model")
-# embedd_dict, embedd_dim = embedding.load_embedding_dict(embedding_path)
-embedd_dim = 300
-scale = np.sqrt(3.0 / embedd_dim)
-embedd_dict = {u'random':np.random.uniform(-scale, scale, [1, embedd_dim]).astype(np.float32)}
+embedd_dict, embedd_dim = embedding.load_embedding_dict(embedding_path)
+# embedd_dim = 300
+# scale = np.sqrt(3.0 / embedd_dim)
+# embedd_dict = {u'random':np.random.uniform(-scale, scale, [1, embedd_dim]).astype(np.float32)}
 logger.info("Creating Word2Indexs")
 word_word2index, char_word2index, label_word2index_list, = \
     io_utils.create_word2indexs(word2index_path, train_path, label_type,
