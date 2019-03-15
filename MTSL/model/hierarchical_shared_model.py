@@ -116,7 +116,7 @@ class HierarchicalSharedModel(nn.Module):
     def loss(self, input_word, input_char, target, main_task, target_fw, target_bw, mask, hx=None, leading_symbolic=0):
         # output from rnn [batch, length, tag_space]
         if self.use_lm:
-            output, _, mask, length, lm_fw, lm_bw = self._get_rnn_output(input_word, input_char, main_task, ask, hx=hx)
+            output, _, mask, length, lm_fw, lm_bw = self._get_rnn_output(input_word, input_char, main_task, mask, hx=hx)
             if main_task:
                 lm_fw = self.dense_fw_2(lm_fw)
                 lm_bw = self.dense_bw_2(lm_bw)
