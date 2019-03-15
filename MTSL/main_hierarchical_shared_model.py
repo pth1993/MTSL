@@ -234,7 +234,7 @@ for epoch in range(1, num_epochs + 1):
             writers[i].write(word.data.cpu().numpy(), preds.cpu().numpy(), labels.data.cpu().numpy(),
                          lengths.cpu().numpy(), use_elmo)
         writers[i].close()
-        acc, precision, recall, f1 = io_utils.evaluate_f1(tmp_filename, out_path)
+        acc, precision, recall, f1 = io_utils.evaluate_f1(tmp_filename, out_path, uid)
         acc_list.append(acc)
         precision_list.append(precision)
         recall_list.append(recall)
@@ -270,7 +270,7 @@ for epoch in range(1, num_epochs + 1):
                 writers[i].write(word.data.cpu().numpy(), preds.cpu().numpy(), labels.data.cpu().numpy(),
                                  lengths.cpu().numpy(), use_elmo)
             writers[i].close()
-            test_acc, test_precision, test_recall, test_f1 = io_utils.evaluate_f1(tmp_filename, out_path)
+            test_acc, test_precision, test_recall, test_f1 = io_utils.evaluate_f1(tmp_filename, out_path, uid)
             print(label_type[i] + " best dev  acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%% (epoch: %d)"
                   % (acc_list[i], precision_list[i], recall_list[i], f1_list[i], best_epoch))
             print(label_type[i] + " best test acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%% (epoch: %d)"
