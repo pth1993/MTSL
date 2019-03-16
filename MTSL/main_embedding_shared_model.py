@@ -41,9 +41,9 @@ parser.add_argument('--use_lm', help='use lm')
 parser.add_argument('--use_elmo', help='use elmo')
 parser.add_argument('--lm_loss', type=float, default=0.05, help='lm loss scale')
 parser.add_argument('--label_type', nargs=2, help='label type')
-parser.add_argument('--train', nargs='2')
-parser.add_argument('--dev', nargs='2')
-parser.add_argument('--test', nargs='2')
+parser.add_argument('--train', nargs=2)
+parser.add_argument('--dev', nargs=2)
+parser.add_argument('--test', nargs=2)
 
 args = parser.parse_args()
 
