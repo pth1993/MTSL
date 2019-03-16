@@ -305,3 +305,13 @@ def evaluate_f1(output_file, out_path, uid):
         recall = float(fields[2].split(":")[1].strip()[:-1])
         f1 = float(fields[3].split(":")[1].strip())
     return acc, precision, recall, f1
+
+
+def parse_bool(string):
+    if string == 'True':
+        string = True
+    elif string == 'False':
+        string = False
+    else:
+        raise ValueError('Unknown boolean: %s' % string)
+    return string
