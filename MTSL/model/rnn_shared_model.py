@@ -2,16 +2,15 @@ import torch
 import torch.nn as nn
 from chaincrf import ChainCRF
 from torch.nn import Embedding
-import utils
-import torch.nn.utils.rnn as rnn_utils
 from allennlp.modules.elmo import Elmo
+import utils
 
 
-class HierarchicalSharedModel(nn.Module):
+class RNNSharedModel(nn.Module):
     def __init__(self, word_dim, num_words, char_dim, num_chars, num_labels, num_filters,
                  kernel_size, rnn_mode, hidden_size, num_layers, embedd_word=None, p_in=0.33, p_out=0.5,
                  p_rnn=(0.5, 0.5), lm_loss=0.05, bigram=True, use_crf=True, use_lm=True, use_elmo=False):
-        super(HierarchicalSharedModel, self).__init__()
+        super(RNNSharedModel, self).__init__()
         self.lm_loss = lm_loss
         self.use_elmo = use_elmo
         if self.use_elmo:
@@ -39,10 +38,8 @@ class HierarchicalSharedModel(nn.Module):
             RNN = nn.GRU
         else:
             raise ValueError('Unknown RNN mode: %s' % rnn_mode)
-        self.rnn_1 = RNN(word_dim + num_filters, hidden_size, num_layers=num_layers, batch_first=True,
-                         bidirectional=True, dropout=p_rnn[1])
-        self.rnn_2 = RNN(word_dim + num_filters + hidden_size*2, hidden_size, num_layers=num_layers, batch_first=True,
-                         bidirectional=True, dropout=p_rnn[1])
+        self.rnn = RNN(word_dim + num_filters, hidden_size, num_layers=num_layers, batch_first=True,
+                       bidirectional=True, dropout=p_rnn[1])
         if self.use_crf:
             self.crf_1 = ChainCRF(hidden_size * 2, num_labels[0], bigram=bigram)
             self.crf_2 = ChainCRF(hidden_size * 2, num_labels[1], bigram=bigram)
@@ -50,15 +47,14 @@ class HierarchicalSharedModel(nn.Module):
             self.dense_softmax_1 = nn.Linear(hidden_size * 2, num_labels[0])
             self.dense_softmax_2 = nn.Linear(hidden_size * 2, num_labels[1])
         if self.use_lm:
-            self.dense_fw_1 = nn.Linear(hidden_size, num_words)
-            self.dense_bw_1 = nn.Linear(hidden_size, num_words)
-            self.dense_fw_2 = nn.Linear(hidden_size, num_words)
-            self.dense_bw_2 = nn.Linear(hidden_size, num_words)
+            self.dense_fw = nn.Linear(hidden_size, num_words)
+            self.dense_bw = nn.Linear(hidden_size, num_words)
         self.logsoftmax = nn.LogSoftmax(dim=1)
         self.nll_loss = nn.NLLLoss(size_average=False, reduce=False)
 
-    def _get_rnn_output(self, input_word, input_char, main_task, mask, hx=None):
+    def _get_rnn_output(self, input_word, input_char, mask, hx=None):
         length = mask.data.sum(dim=1).long()
+        # [batch, length, word_dim]
         if self.use_elmo:
             input = self.elmo(input_word)
             input = input['elmo_representations'][1]
@@ -84,45 +80,33 @@ class HierarchicalSharedModel(nn.Module):
         # apply dropout
         input = self.dropout_rnn_in(input)
         # prepare packed_sequence
-        seq_input, hx, rev_order, mask, lens = utils.prepare_rnn_seq(input, length, hx=hx, masks=mask, batch_first=True)
-        seq_output, hn = self.rnn_1(seq_input, hx=hx)
-        seq_input, _ = rnn_utils.pad_packed_sequence(seq_input, batch_first=True)
-        if main_task:
-            seq_output, _ = rnn_utils.pad_packed_sequence(seq_output, batch_first=True)
-            output_size = seq_output.size()
-            seq_output = seq_output.view(output_size[0], output_size[1], 2, -1)
-            hidden_fw = seq_output[:, :, 0]
-            hidden_bw = seq_output[:, :, 1]
-            hidden_input = torch.cat((seq_input, hidden_fw, hidden_bw), 2)
-            hidden_input = rnn_utils.pack_padded_sequence(hidden_input, lens, batch_first=True)
-            seq_output, hn = self.rnn_2(hidden_input, hx=hx)
+        seq_input, hx, rev_order, mask, _ = utils.prepare_rnn_seq(input, length, hx=hx, masks=mask, batch_first=True)
+        seq_output, hn = self.rnn(seq_input, hx=hx)
         output, hn = utils.recover_rnn_seq(seq_output, rev_order, hx=hn, batch_first=True)
         output = self.dropout_out(output)
         if self.use_lm:
             output_size = output.size()
+            # print output_size
             lm = output.view(output_size[0], output_size[1], 2, -1)
+            # print output_lm.size()
             lm_fw = lm[:, :, 0]
             lm_bw = lm[:, :, 1]
             return output, hn, mask, length, lm_fw, lm_bw
         else:
             return output, hn, mask, length
 
-    def forward(self, input_word, input_char, main_task, mask=None, length=None, hx=None):
+    def forward(self, input_word, input_char, mask, hx=None):
         # output from rnn [batch, length, tag_space]
-        output, _, mask, length = self._get_rnn_output(input_word, input_char, main_task, mask=mask, hx=hx)
+        output, _, mask, length = self._get_rnn_output(input_word, input_char, mask, hx=hx)
         # [batch, length, num_label,  num_label]
         return self.crf(output, mask=mask), mask
 
     def loss(self, input_word, input_char, target, main_task, target_fw, target_bw, mask, hx=None, leading_symbolic=0):
         # output from rnn [batch, length, tag_space]
         if self.use_lm:
-            output, _, mask, length, lm_fw, lm_bw = self._get_rnn_output(input_word, input_char, main_task, mask, hx=hx)
-            if main_task:
-                lm_fw = self.dense_fw_2(lm_fw)
-                lm_bw = self.dense_bw_2(lm_bw)
-            else:
-                lm_fw = self.dense_fw_1(lm_fw)
-                lm_bw = self.dense_bw_1(lm_bw)
+            output, _, mask, length, lm_fw, lm_bw = self._get_rnn_output(input_word, input_char, mask, hx=hx)
+            lm_fw = self.dense_fw(lm_fw)
+            lm_bw = self.dense_bw(lm_bw)
             output_size = lm_fw.size()
             output_size = (output_size[0] * output_size[1], output_size[2])
             lm_fw = lm_fw.view(output_size)
@@ -135,7 +119,7 @@ class HierarchicalSharedModel(nn.Module):
             bw_loss = (self.nll_loss(self.logsoftmax(lm_bw), target_bw.view(-1)) * mask.contiguous().view(
                 -1)).sum() / mask.sum()
         else:
-            output, _, mask, length = self._get_rnn_output(input_word, input_char, main_task, mask, hx=hx)
+            output, _, mask, length = self._get_rnn_output(input_word, input_char, mask, hx=hx)
             max_len = length.max()
         target = target[:, :max_len]
         # [batch, length, num_label,  num_label]
@@ -173,10 +157,9 @@ class HierarchicalSharedModel(nn.Module):
     def decode(self, input_word, input_char, target, main_task, mask, hx=None, leading_symbolic=0):
         # output from rnn [batch, length, tag_space]
         if self.use_lm:
-            output, _, mask, length, lm_fw, lm_bw = self._get_rnn_output(input_word, input_char, main_task,
-                                                                                 mask, hx=hx)
+            output, _, mask, length, lm_fw, lm_bw = self._get_rnn_output(input_word, input_char, mask, hx=hx)
         else:
-            output, _, mask, length,  = self._get_rnn_output(input_word, input_char, main_task, mask, hx=hx)
+            output, _, mask, length,  = self._get_rnn_output(input_word, input_char, mask, hx=hx)
         max_len = length.max()
         target = target[:, :max_len]
         if main_task:
@@ -184,3 +167,4 @@ class HierarchicalSharedModel(nn.Module):
         else:
             preds = self.crf_1.decode(output, mask=mask, leading_symbolic=leading_symbolic)
         return preds, (torch.eq(preds, target.data).float() * mask.data).sum()
+
