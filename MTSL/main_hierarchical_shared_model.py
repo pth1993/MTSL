@@ -126,7 +126,7 @@ for i in range(len(label_type)):
                                                   use_lm=use_lm, use_elmo=use_elmo))
     writers.append(writer.Writer(label_word2index_list[i]))
 if use_elmo:
-    word_table =  (option_path, weight_path)
+    word_table = (option_path, weight_path)
 else:
     word_table = io_utils.construct_word_embedding_table(embedd_dict, embedd_dim, word_word2index)
 

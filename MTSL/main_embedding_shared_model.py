@@ -41,6 +41,8 @@ parser.add_argument('--use_lm', help='use lm')
 parser.add_argument('--use_elmo', help='use elmo')
 parser.add_argument('--lm_loss', type=float, default=0.05, help='lm loss scale')
 parser.add_argument('--label_type', nargs=2, help='label type')
+parser.add_argument('--bucket_auxiliary', type=int, nargs='+', help='bucket auxiliary')
+parser.add_argument('--bucket_main', type=int, nargs='+', help='bucket main')
 parser.add_argument('--train', nargs=2)
 parser.add_argument('--dev', nargs=2)
 parser.add_argument('--test', nargs=2)
@@ -80,6 +82,9 @@ use_crf = io_utils.parse_bool(use_crf)
 use_lm = io_utils.parse_bool(use_lm)
 use_elmo = io_utils.parse_bool(use_elmo)
 lm_loss = args.lm_loss
+bucket_auxiliary = args.bucket_auxiliary
+bucket_main = args.bucket_main
+label_bucket = dict(zip(label_type, [bucket_auxiliary, bucket_main]))
 
 logger = logger.get_logger("Embedding-Shared Model")
 logger.info("Use Language Model: %s" % use_lm)
@@ -110,19 +115,19 @@ num_labels = []
 writers = []
 for i in range(len(label_type)):
     data_train.append(io_utils.read_data_to_tensor(train_path[i], word_word2index, char_word2index,
-                                                   label_word2index_list[i], device, label_type[i], use_lm=use_lm,
-                                                   use_elmo=use_elmo))
+                                                   label_word2index_list[i], device, label_type[i], label_bucket,
+                                                   use_lm=use_lm, use_elmo=use_elmo))
     num_data.append(sum(data_train[i][1]))
     num_labels.append(label_word2index_list[i].size())
     data_dev.append(io_utils.read_data_to_tensor(dev_path[i], word_word2index, char_word2index,
-                                                 label_word2index_list[i], device, label_type[i], use_lm=use_lm,
-                                                 use_elmo=use_elmo))
+                                                 label_word2index_list[i], device, label_type[i], label_bucket,
+                                                 use_lm=use_lm, use_elmo=use_elmo))
     data_test.append(io_utils.read_data_to_tensor(test_path[i], word_word2index, char_word2index,
-                                                  label_word2index_list[i], device, label_type[i], use_lm=use_lm,
-                                                  use_elmo=use_elmo))
+                                                  label_word2index_list[i], device, label_type[i], label_bucket,
+                                                  use_lm=use_lm, use_elmo=use_elmo))
     writers.append(writer.Writer(label_word2index_list[i]))
 if use_elmo:
-    word_table =  (option_path, weight_path)
+    word_table = (option_path, weight_path)
 else:
     word_table = io_utils.construct_word_embedding_table(embedd_dict, embedd_dim, word_word2index)
 
@@ -209,7 +214,8 @@ for epoch in range(1, num_epochs + 1):
             main_task = False
         tmp_filename = out_path + '/%s_dev_%s%d' % (str(uid), label_type[i], epoch)
         writers[i].start(tmp_filename)
-        for batch in io_utils.iterate_batch_variable(data_dev[i], batch_size, label_type[i], use_lm=use_lm):
+        for batch in io_utils.iterate_batch_variable(data_dev[i], batch_size, label_type[i], label_bucket,
+                                                     use_lm=use_lm):
             if use_lm:
                 word, char, labels, masks, lengths, word_fw, word_bw = batch
             else:
@@ -245,7 +251,8 @@ for epoch in range(1, num_epochs + 1):
             # evaluate on test data when better performance detected
             tmp_filename = out_path + '/%s_test_%s%d' % (str(uid), label_type[i], epoch)
             writers[i].start(tmp_filename)
-            for batch in io_utils.iterate_batch_variable(data_test[i], batch_size, label_type[i], use_lm=use_lm):
+            for batch in io_utils.iterate_batch_variable(data_test[i], batch_size, label_type[i], label_bucket,
+                                                         use_lm=use_lm):
                 if use_lm:
                     word, char, labels, masks, lengths, word_fw, word_bw = batch
                 else:

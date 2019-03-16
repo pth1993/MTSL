@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore")
 uid = uuid.uuid4().hex[:6]
 
 parser = argparse.ArgumentParser(description='Embedding Shared Model')
-parser.add_argument('--rnn_mode', choices=['RNN', 'LSTM', 'GRU'], help='architecture of rnn', required=True)
+parser.add_argument('--rnn_mode', choices=['RNN', 'LSTM', 'GRU'], help='architecture of rnn')
 parser.add_argument('--num_epochs', type=int, default=100, help='Number of training epochs')
 parser.add_argument('--batch_size', type=int, default=16, help='Number of sentences in each batch')
 parser.add_argument('--hidden_size', type=int, default=128, help='Number of hidden units in RNN')
@@ -25,7 +25,7 @@ parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning 
 parser.add_argument('--decay_rate', type=float, default=0.05, help='Decay rate of learning rate')
 parser.add_argument('--momentum', type=float, default=0.9, help='Momentum for SGD')
 parser.add_argument('--gamma', type=float, default=0.0, help='weight for regularization')
-parser.add_argument('--p_rnn', nargs=2, type=float, required=True, help='dropout rate for RNN')
+parser.add_argument('--p_rnn', nargs=2, type=float, help='dropout rate for RNN')
 parser.add_argument('--p_in', type=float, default=0.33, help='dropout rate for input embeddings')
 parser.add_argument('--p_out', type=float, default=0.5, help='dropout rate for output layer')
 parser.add_argument('--bigram', action='store_true', help='bi-gram parameter for CRF')
@@ -40,6 +40,7 @@ parser.add_argument('--use_lm', help='use lm')
 parser.add_argument('--use_elmo', help='use elmo')
 parser.add_argument('--lm_loss', type=float, default=0.05, help='lm loss scale')
 parser.add_argument('--label_type', nargs=2, help='label type')
+parser.add_argument('--bucket', type=int, nargs='+', help='bucket')
 parser.add_argument('--train', nargs=1)
 parser.add_argument('--dev', nargs=1)
 parser.add_argument('--test', nargs=1)
@@ -75,24 +76,17 @@ label_type = args.label_type
 use_lm = args.use_lm
 use_crf = args.use_crf
 use_elmo = args.use_elmo
-if use_lm == 'True':
-    use_lm = True
-elif use_lm == 'False':
-    use_lm = False
-if use_crf == 'True':
-    use_crf = True
-elif use_crf == 'False':
-    use_crf = False
-if use_elmo == 'True':
-    use_elmo = True
-elif use_elmo == 'False':
-    use_elmo = False
-print("use_lm: %s" % use_lm)
-print("use_crf: %s" % use_crf)
-print("use_elmo: %s" % use_elmo)
+use_crf = io_utils.parse_bool(use_crf)
+use_lm = io_utils.parse_bool(use_lm)
+use_elmo = io_utils.parse_bool(use_elmo)
 lm_loss = args.lm_loss
+bucket = args.bucket
+label_bucket = dict(zip(label_type, [bucket]))
 
 logger = logger.get_logger("Base Model")
+logger.info("Use Language Model: %s" % use_lm)
+logger.info("Use CRF: %s" % use_crf)
+logger.info("Use ELMo: %s" % use_elmo)
 embedd_dict, embedd_dim = embedding.load_embedding_dict(embedding_path)
 # embedd_dim = 300
 # scale = np.sqrt(3.0 / embedd_dim)
@@ -121,16 +115,16 @@ num_labels = []
 writers = []
 for i in range(len(label_type)):
     data_train.append(io_utils.read_data_to_tensor(train_path[i], word_word2index, char_word2index,
-                                                   label_word2index_list[i], device, label_type[i], use_lm=use_lm,
-                                                   use_elmo=use_elmo))
+                                                   label_word2index_list[i], device, label_type[i], label_bucket,
+                                                   use_lm=use_lm, use_elmo=use_elmo))
     num_data.append(sum(data_train[i][1]))
     num_labels.append(label_word2index_list[i].size())
     data_dev.append(io_utils.read_data_to_tensor(dev_path[i], word_word2index, char_word2index,
-                                                 label_word2index_list[i], device, label_type[i], use_lm=use_lm,
-                                                 use_elmo=use_elmo))
+                                                 label_word2index_list[i], device, label_type[i], label_bucket,
+                                                 use_lm=use_lm, use_elmo=use_elmo))
     data_test.append(io_utils.read_data_to_tensor(test_path[i], word_word2index, char_word2index,
-                                                  label_word2index_list[i], device, label_type[i], use_lm=use_lm,
-                                                  use_elmo=use_elmo))
+                                                  label_word2index_list[i], device, label_type[i], label_bucket,
+                                                  use_lm=use_lm, use_elmo=use_elmo))
     writers.append(writer.Writer(label_word2index_list[i]))
 if use_elmo:
     word_table =  (option_path, weight_path)
@@ -140,8 +134,8 @@ else:
 logger.info("Constructing network...")
 network = base_model.BaseModel(
     embedd_dim, word_word2index.size(), char_dim, char_word2index.size(), num_labels[-1], num_filters, window, rnn_mode,
-    hidden_size, num_layers, embedd_word=word_table, p_in=p_in, p_out=p_out, p_rnn=p_rnn, lm_loss=lm_loss, bigram=bigram,
-    use_crf=use_crf, use_lm=use_lm, use_elmo=use_elmo)
+    hidden_size, num_layers, embedd_word=word_table, p_in=p_in, p_out=p_out, p_rnn=p_rnn, lm_loss=lm_loss,
+    bigram=bigram, use_crf=use_crf, use_lm=use_lm, use_elmo=use_elmo)
 network.to(device)
 optim = SGD(network.parameters(), lr=learning_rate, momentum=momentum, weight_decay=gamma, nesterov=True)
 logger.info("Network: %s, num_layer=%d, hidden=%d, filter=%d, crf=%s" % (
@@ -211,7 +205,7 @@ for epoch in range(1, num_epochs + 1):
     for i in range(len(label_type)):
         tmp_filename = out_path + '/%s_dev%d' % (str(uid), epoch)
         writers[i].start(tmp_filename)
-        for batch in io_utils.iterate_batch_variable(data_dev[i], batch_size, label_type[i], use_lm):
+        for batch in io_utils.iterate_batch_variable(data_dev[i], batch_size, label_type[i], label_bucket, use_lm):
             if use_lm:
                 word, char, labels, masks, lengths, word_fw, word_bw = batch
             else:
@@ -236,7 +230,7 @@ for epoch in range(1, num_epochs + 1):
             # evaluate on test data when better performance detected
             tmp_filename = out_path + '/%s_test%d' % (str(uid), epoch)
             writers[i].start(tmp_filename)
-            for batch in io_utils.iterate_batch_variable(data_test[i], batch_size, label_type[i], use_lm):
+            for batch in io_utils.iterate_batch_variable(data_test[i], batch_size, label_type[i], label_bucket, use_lm):
                 if use_lm:
                     word, char, labels, masks, lengths, word_fw, word_bw = batch
                 else:

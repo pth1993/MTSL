@@ -5,6 +5,7 @@ CUDA_VISIBLE_DEVICES=0 python main_base_model.py --rnn_mode LSTM --num_epochs 20
  --embedding_path "data/embedding/glove_embedding.txt" --option_path "data/embedding/elmo_option.json" \
  --weight_path "data/embedding/elmo_weight.hdf5" --word2index_path "output/base_model/word2index" \
  --out_path "output/base_model" --use_crf "False" --use_lm "False" --use_elmo "False" --label_type "ner" \
+ --bucket 5 10 15 20 25 30 40 50 60 70 80 \
  --train "data/ner/train.ner" \
  --dev "data/ner/dev.ner" \
  --test "data/ner/test.ner"
