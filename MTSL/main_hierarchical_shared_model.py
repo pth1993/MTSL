@@ -84,194 +84,195 @@ lm_loss = args.lm_loss
 bucket_auxiliary = args.bucket_auxiliary
 bucket_main = args.bucket_main
 label_bucket = dict(zip(label_type, [bucket_auxiliary, bucket_main]))
-print(label_bucket)
 
-# logger = logger.get_logger("Hierarchical-Shared Model")
-# logger.info("Use Language Model: %s" % use_lm)
-# logger.info("Use CRF: %s" % use_crf)
-# logger.info("Use ELMo: %s" % use_elmo)
-# embedd_dict, embedd_dim = embedding.load_embedding_dict(embedding_path)
-# logger.info("Creating Word2Indexs")
-# word_word2index, char_word2index, label_word2index_list, = \
-#     io_utils.create_word2indexs(word2index_path, train_path, label_type,
-#                                 test_paths=[[dev, test] for dev, test in zip(dev_path, test_path)],
-#                                 embedd_dict=embedd_dict, max_vocabulary_size=60000)
-#
-# logger.info("Word Word2Index Size: %d" % word_word2index.size())
-# logger.info("Character Word2Index Size: %d" % char_word2index.size())
-# for i in range(len(label_word2index_list)):
-#     logger.info("Label %d Word2Index Size: %d" % (i, label_word2index_list[i].size()))
-#
-# logger.info("Reading Data")
-# if torch.cuda.is_available():
-#     device = torch.device("cuda")
-# else:
-#     device = torch.device("cpu")
-# data_train = []
-# data_dev = []
-# data_test = []
-# num_data = []
-# num_labels = []
-# writers = []
-# for i in range(len(label_type)):
-#     data_train.append(io_utils.read_data_to_tensor(train_path[i], word_word2index, char_word2index,
-#                                                    label_word2index_list[i], device, label_type[i], use_lm=use_lm,
-#                                                    use_elmo=use_elmo))
-#     num_data.append(sum(data_train[i][1]))
-#     num_labels.append(label_word2index_list[i].size())
-#     data_dev.append(io_utils.read_data_to_tensor(dev_path[i], word_word2index, char_word2index,
-#                                                  label_word2index_list[i], device, label_type[i], use_lm=use_lm,
-#                                                  use_elmo=use_elmo))
-#     data_test.append(io_utils.read_data_to_tensor(test_path[i], word_word2index, char_word2index,
-#                                                   label_word2index_list[i], device, label_type[i], use_lm=use_lm,
-#                                                   use_elmo=use_elmo))
-#     writers.append(writer.Writer(label_word2index_list[i]))
-# if use_elmo:
-#     word_table =  (option_path, weight_path)
-# else:
-#     word_table = io_utils.construct_word_embedding_table(embedd_dict, embedd_dim, word_word2index)
-#
-# logger.info("constructing network...")
-# network = hierarchical_shared_model.HierarchicalSharedModel(
-#     embedd_dim, word_word2index.size(), char_dim, char_word2index.size(), num_labels, num_filters, window, rnn_mode,
-#     hidden_size, num_layers, embedd_word=word_table, p_in=p_in, p_out=p_out, p_rnn=p_rnn, lm_loss=lm_loss,
-#     bigram=bigram, use_crf=use_crf, use_elmo=use_elmo, use_lm=use_lm)
-# network.to(device)
-# optim = SGD(network.parameters(), lr=learning_rate, momentum=momentum, weight_decay=gamma, nesterov=True)
-# logger.info("Network: %s, num_layer=%d, hidden=%d, filter=%d, crf=%s" % (
-#     rnn_mode, num_layers, hidden_size, num_filters, 'bigram' if bigram else 'unigram'))
-# logger.info(
-#     "training: l2: %f, #train data: %d, batch: %d, dropout: %.2f" % (
-#         gamma, num_data[-1], batch_size, p_in))
-#
-# num_batches = []
-# for i in range(len(label_type)):
-#     num_batches.append(int(num_data[i] / batch_size) + 1)
-# dev_f1 = 0.0
-# dev_acc = 0.0
-# dev_precision = 0.0
-# dev_recall = 0.0
-# test_f1 = 0.0
-# test_acc = 0.0
-# test_precision = 0.0
-# test_recall = 0.0
-# best_epoch = 0
-# lr = learning_rate
-# for epoch in range(1, num_epochs + 1):
-#     print('Epoch %d (%s, learning rate=%.4f, decay rate=%.4f (schedule=%d)): ' % (
-#         epoch, rnn_mode, lr, decay_rate, schedule))
-#     train_err = 0.
-#     train_total = 0.
-#     num_back = 0
-#     network.train()
-#     for i in range(len(label_type)):
-#         start_time = time.time()
-#         if i == (len(label_type) - 1):
-#             main_task = True
-#         else:
-#             main_task = False
-#         for batch in range(1, num_batches[i] + 1):
-#             if use_lm:
-#                 word, char, labels, masks, lengths, word_fw, word_bw = \
-#                     io_utils.get_batch_variable(data_train[i], batch_size, use_lm=use_lm)
-#             else:
-#                 word, char, labels, masks, lengths = \
-#                     io_utils.get_batch_variable(data_train[i], batch_size, use_lm=use_lm)
-#                 word_fw = None
-#                 word_bw = None
-#             optim.zero_grad()
-#             if use_crf:
-#                 loss = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
-#             else:
-#                 loss, _ = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
-#             loss.backward()
-#             optim.step()
-#             num_inst = word.size(0)
-#             train_err += loss.data * num_inst
-#             train_total += num_inst
-#             time_ave = (time.time() - start_time) / batch
-#             time_left = (num_batches[i] - batch) * time_ave
-#             # update log
-#             if batch % 100 == 0:
-#                 sys.stdout.write("\b" * num_back)
-#                 sys.stdout.write(" " * num_back)
-#                 sys.stdout.write("\b" * num_back)
-#                 log_info = 'train: %d/%d loss: %.4f, time left (estimated): %.2fs' % (
-#                     batch, num_batches[i], train_err / train_total, time_left)
-#                 sys.stdout.write(log_info)
-#                 sys.stdout.flush()
-#                 num_back = len(log_info)
-#         sys.stdout.write("\b" * num_back)
-#         sys.stdout.write(" " * num_back)
-#         sys.stdout.write("\b" * num_back)
-#         print('train: %d loss: %.4f, time: %.2fs' % (num_batches[i], train_err / train_total, time.time() - start_time))
-#     acc_list = []
-#     precision_list = []
-#     recall_list = []
-#     f1_list = []
-#     network.eval()
-#     for i in range(len(label_type)):
-#         if i == (len(label_type) - 1):
-#             main_task = True
-#         else:
-#             main_task = False
-#         tmp_filename = out_path + '/%s_dev_%s%d' % (str(uid), label_type[i], epoch)
-#         writers[i].start(tmp_filename)
-#         for batch in io_utils.iterate_batch_variable(data_dev[i], batch_size, label_type[i], use_lm=use_lm):
-#             if use_lm:
-#                 word, char, labels, masks, lengths, word_fw, word_bw = batch
-#             else:
-#                 word, char, labels, masks, lengths = batch
-#                 word_fw = None
-#                 word_bw = None
-#             if use_crf:
-#                 preds, _ = network.decode(word, char, labels, main_task, masks, leading_symbolic=1)
-#             else:
-#                 _, preds = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
-#             writers[i].write(word.data.cpu().numpy(), preds.cpu().numpy(), labels.data.cpu().numpy(),
-#                          lengths.cpu().numpy(), use_elmo)
-#         writers[i].close()
-#         acc, precision, recall, f1 = io_utils.evaluate_f1(tmp_filename, out_path, uid)
-#         acc_list.append(acc)
-#         precision_list.append(precision)
-#         recall_list.append(recall)
-#         f1_list.append(f1)
-#         print(label_type[i] + ' dev acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (acc, precision,
-#                                                                                                    recall, f1))
-#
-#     if dev_f1 < f1_list[-1]:
-#         dev_f1 = f1_list[-1]
-#         dev_acc = acc_list[-1]
-#         dev_precision = precision_list[-1]
-#         dev_recall = recall_list[-1]
-#         best_epoch = epoch
-#         for i in range(len(label_type)):
-#             if i == (len(label_type) - 1):
-#                 main_task = True
-#             else:
-#                 main_task = False
-#             # evaluate on test data when better performance detected
-#             tmp_filename = out_path + '/%s_test_%s%d' % (str(uid), label_type[i], epoch)
-#             writers[i].start(tmp_filename)
-#             for batch in io_utils.iterate_batch_variable(data_test[i], batch_size, label_type[i], use_lm=use_lm):
-#                 if use_lm:
-#                     word, char, labels, masks, lengths, word_fw, word_bw = batch
-#                 else:
-#                     word, char, labels, masks, lengths = batch
-#                     word_fw = None
-#                     word_bw = None
-#                 if use_crf:
-#                     preds, _ = network.decode(word, char, labels, main_task, masks, leading_symbolic=1)
-#                 else:
-#                     _, preds = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
-#                 writers[i].write(word.data.cpu().numpy(), preds.cpu().numpy(), labels.data.cpu().numpy(),
-#                                  lengths.cpu().numpy(), use_elmo)
-#             writers[i].close()
-#             test_acc, test_precision, test_recall, test_f1 = io_utils.evaluate_f1(tmp_filename, out_path, uid)
-#             print(label_type[i] + " best dev  acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%% (epoch: %d)"
-#                   % (acc_list[i], precision_list[i], recall_list[i], f1_list[i], best_epoch))
-#             print(label_type[i] + " best test acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%% (epoch: %d)"
-#                   % (test_acc, test_precision, test_recall, test_f1, best_epoch))
-#     if epoch % schedule == 0:
-#         lr = learning_rate / (1.0 + epoch * decay_rate)
-#         optim = SGD(network.parameters(), lr=lr, momentum=momentum, weight_decay=gamma, nesterov=True)
+logger = logger.get_logger("Hierarchical-Shared Model")
+logger.info("Use Language Model: %s" % use_lm)
+logger.info("Use CRF: %s" % use_crf)
+logger.info("Use ELMo: %s" % use_elmo)
+embedd_dict, embedd_dim = embedding.load_embedding_dict(embedding_path)
+logger.info("Creating Word2Indexs")
+word_word2index, char_word2index, label_word2index_list, = \
+    io_utils.create_word2indexs(word2index_path, train_path, label_type,
+                                test_paths=[[dev, test] for dev, test in zip(dev_path, test_path)],
+                                embedd_dict=embedd_dict, max_vocabulary_size=60000)
+
+logger.info("Word Word2Index Size: %d" % word_word2index.size())
+logger.info("Character Word2Index Size: %d" % char_word2index.size())
+for i in range(len(label_word2index_list)):
+    logger.info("Label %d Word2Index Size: %d" % (i, label_word2index_list[i].size()))
+
+logger.info("Reading Data")
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+else:
+    device = torch.device("cpu")
+data_train = []
+data_dev = []
+data_test = []
+num_data = []
+num_labels = []
+writers = []
+for i in range(len(label_type)):
+    data_train.append(io_utils.read_data_to_tensor(train_path[i], word_word2index, char_word2index,
+                                                   label_word2index_list[i], device, label_type[i], label_bucket,
+                                                   use_lm=use_lm, use_elmo=use_elmo))
+    num_data.append(sum(data_train[i][1]))
+    num_labels.append(label_word2index_list[i].size())
+    data_dev.append(io_utils.read_data_to_tensor(dev_path[i], word_word2index, char_word2index,
+                                                 label_word2index_list[i], device, label_type[i], label_bucket,
+                                                 use_lm=use_lm, use_elmo=use_elmo))
+    data_test.append(io_utils.read_data_to_tensor(test_path[i], word_word2index, char_word2index,
+                                                  label_word2index_list[i], device, label_type[i], label_bucket,
+                                                  use_lm=use_lm, use_elmo=use_elmo))
+    writers.append(writer.Writer(label_word2index_list[i]))
+if use_elmo:
+    word_table =  (option_path, weight_path)
+else:
+    word_table = io_utils.construct_word_embedding_table(embedd_dict, embedd_dim, word_word2index)
+
+logger.info("constructing network...")
+network = hierarchical_shared_model.HierarchicalSharedModel(
+    embedd_dim, word_word2index.size(), char_dim, char_word2index.size(), num_labels, num_filters, window, rnn_mode,
+    hidden_size, num_layers, embedd_word=word_table, p_in=p_in, p_out=p_out, p_rnn=p_rnn, lm_loss=lm_loss,
+    bigram=bigram, use_crf=use_crf, use_elmo=use_elmo, use_lm=use_lm)
+network.to(device)
+optim = SGD(network.parameters(), lr=learning_rate, momentum=momentum, weight_decay=gamma, nesterov=True)
+logger.info("Network: %s, num_layer=%d, hidden=%d, filter=%d, crf=%s" % (
+    rnn_mode, num_layers, hidden_size, num_filters, 'bigram' if bigram else 'unigram'))
+logger.info(
+    "training: l2: %f, #train data: %d, batch: %d, dropout: %.2f" % (
+        gamma, num_data[-1], batch_size, p_in))
+
+num_batches = []
+for i in range(len(label_type)):
+    num_batches.append(int(num_data[i] / batch_size) + 1)
+dev_f1 = 0.0
+dev_acc = 0.0
+dev_precision = 0.0
+dev_recall = 0.0
+test_f1 = 0.0
+test_acc = 0.0
+test_precision = 0.0
+test_recall = 0.0
+best_epoch = 0
+lr = learning_rate
+for epoch in range(1, num_epochs + 1):
+    print('Epoch %d (%s, learning rate=%.4f, decay rate=%.4f (schedule=%d)): ' % (
+        epoch, rnn_mode, lr, decay_rate, schedule))
+    train_err = 0.
+    train_total = 0.
+    num_back = 0
+    network.train()
+    for i in range(len(label_type)):
+        start_time = time.time()
+        if i == (len(label_type) - 1):
+            main_task = True
+        else:
+            main_task = False
+        for batch in range(1, num_batches[i] + 1):
+            if use_lm:
+                word, char, labels, masks, lengths, word_fw, word_bw = \
+                    io_utils.get_batch_variable(data_train[i], batch_size, use_lm=use_lm)
+            else:
+                word, char, labels, masks, lengths = \
+                    io_utils.get_batch_variable(data_train[i], batch_size, use_lm=use_lm)
+                word_fw = None
+                word_bw = None
+            optim.zero_grad()
+            if use_crf:
+                loss = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
+            else:
+                loss, _ = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
+            loss.backward()
+            optim.step()
+            num_inst = word.size(0)
+            train_err += loss.data * num_inst
+            train_total += num_inst
+            time_ave = (time.time() - start_time) / batch
+            time_left = (num_batches[i] - batch) * time_ave
+            # update log
+            if batch % 100 == 0:
+                sys.stdout.write("\b" * num_back)
+                sys.stdout.write(" " * num_back)
+                sys.stdout.write("\b" * num_back)
+                log_info = 'train: %d/%d loss: %.4f, time left (estimated): %.2fs' % (
+                    batch, num_batches[i], train_err / train_total, time_left)
+                sys.stdout.write(log_info)
+                sys.stdout.flush()
+                num_back = len(log_info)
+        sys.stdout.write("\b" * num_back)
+        sys.stdout.write(" " * num_back)
+        sys.stdout.write("\b" * num_back)
+        print('train: %d loss: %.4f, time: %.2fs' % (num_batches[i], train_err / train_total, time.time() - start_time))
+    acc_list = []
+    precision_list = []
+    recall_list = []
+    f1_list = []
+    network.eval()
+    for i in range(len(label_type)):
+        if i == (len(label_type) - 1):
+            main_task = True
+        else:
+            main_task = False
+        tmp_filename = out_path + '/%s_dev_%s%d' % (str(uid), label_type[i], epoch)
+        writers[i].start(tmp_filename)
+        for batch in io_utils.iterate_batch_variable(data_dev[i], batch_size, label_type[i], label_bucket,
+                                                     use_lm=use_lm):
+            if use_lm:
+                word, char, labels, masks, lengths, word_fw, word_bw = batch
+            else:
+                word, char, labels, masks, lengths = batch
+                word_fw = None
+                word_bw = None
+            if use_crf:
+                preds, _ = network.decode(word, char, labels, main_task, masks, leading_symbolic=1)
+            else:
+                _, preds = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
+            writers[i].write(word.data.cpu().numpy(), preds.cpu().numpy(), labels.data.cpu().numpy(),
+                         lengths.cpu().numpy(), use_elmo)
+        writers[i].close()
+        acc, precision, recall, f1 = io_utils.evaluate_f1(tmp_filename, out_path, uid)
+        acc_list.append(acc)
+        precision_list.append(precision)
+        recall_list.append(recall)
+        f1_list.append(f1)
+        print(label_type[i] + ' dev acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (acc, precision,
+                                                                                                   recall, f1))
+
+    if dev_f1 < f1_list[-1]:
+        dev_f1 = f1_list[-1]
+        dev_acc = acc_list[-1]
+        dev_precision = precision_list[-1]
+        dev_recall = recall_list[-1]
+        best_epoch = epoch
+        for i in range(len(label_type)):
+            if i == (len(label_type) - 1):
+                main_task = True
+            else:
+                main_task = False
+            # evaluate on test data when better performance detected
+            tmp_filename = out_path + '/%s_test_%s%d' % (str(uid), label_type[i], epoch)
+            writers[i].start(tmp_filename)
+            for batch in io_utils.iterate_batch_variable(data_test[i], batch_size, label_type[i], label_bucket,
+                                                         use_lm=use_lm):
+                if use_lm:
+                    word, char, labels, masks, lengths, word_fw, word_bw = batch
+                else:
+                    word, char, labels, masks, lengths = batch
+                    word_fw = None
+                    word_bw = None
+                if use_crf:
+                    preds, _ = network.decode(word, char, labels, main_task, masks, leading_symbolic=1)
+                else:
+                    _, preds = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
+                writers[i].write(word.data.cpu().numpy(), preds.cpu().numpy(), labels.data.cpu().numpy(),
+                                 lengths.cpu().numpy(), use_elmo)
+            writers[i].close()
+            test_acc, test_precision, test_recall, test_f1 = io_utils.evaluate_f1(tmp_filename, out_path, uid)
+            print(label_type[i] + " best dev  acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%% (epoch: %d)"
+                  % (acc_list[i], precision_list[i], recall_list[i], f1_list[i], best_epoch))
+            print(label_type[i] + " best test acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%% (epoch: %d)"
+                  % (test_acc, test_precision, test_recall, test_f1, best_epoch))
+    if epoch % schedule == 0:
+        lr = learning_rate / (1.0 + epoch * decay_rate)
+        optim = SGD(network.parameters(), lr=lr, momentum=momentum, weight_decay=gamma, nesterov=True)

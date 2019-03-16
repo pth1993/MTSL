@@ -4,7 +4,7 @@ import shlex
 from word2index import Word2Index
 from datareader import DataReader
 from constant import DIGIT_RE, MAX_CHAR_LENGTH, NUM_CHAR_PAD, PAD_WORD, PAD_START, PAD_END, PAD_LABEL, PAD_CHAR, \
-    UNK_ID, PAD_ID_WORD, PAD_ID_CHAR, PAD_ID_TAG, label_bucket
+    UNK_ID, PAD_ID_WORD, PAD_ID_CHAR, PAD_ID_TAG
 from logger import get_logger
 import codecs
 import numpy as np
@@ -117,7 +117,7 @@ def create_word2indexs(word2index_directory, train_path, label_type, test_paths=
     return word_word2index, char_word2index, label_word2index_list
 
 
-def read_data(data_path, word_word2index, char_word2index, label_word2index, label_type,
+def read_data(data_path, word_word2index, char_word2index, label_word2index, label_type, label_bucket,
               max_size=None, normalize_digits=True, use_lm=False, use_elmo=False):
     _buckets = label_bucket[label_type]
     max_length = 0
@@ -154,10 +154,10 @@ def read_data(data_path, word_word2index, char_word2index, label_word2index, lab
     return data, max_char_length
 
 
-def read_data_to_tensor(data_path, word_word2index, char_word2index, label_word2index, device, label_type,
+def read_data_to_tensor(data_path, word_word2index, char_word2index, label_word2index, device, label_type, label_bucket,
                         max_size=None, normalize_digits=True, use_lm=False, use_elmo=False):
     data, max_char_length = read_data(data_path, word_word2index, char_word2index, label_word2index, label_type,
-                                      max_size=max_size, normalize_digits=normalize_digits, use_lm=use_lm,
+                                      label_bucket, max_size=max_size, normalize_digits=normalize_digits, use_lm=use_lm,
                                       use_elmo=use_elmo)
     _buckets = label_bucket[label_type]
     bucket_sizes = [len(data[b]) for b in range(len(_buckets))]
@@ -257,7 +257,7 @@ def get_batch_variable(data, batch_size, use_lm=False):
         return words, chars[index], ners[index], masks[index], lengths[index]
 
 
-def iterate_batch_variable(data, batch_size, label_type, use_lm=False, shuffle=False):
+def iterate_batch_variable(data, batch_size, label_type, label_bucket, use_lm=False, shuffle=False):
     _buckets = label_bucket[label_type]
     data_variable, bucket_sizes = data
     bucket_indices = np.arange(len(_buckets))
