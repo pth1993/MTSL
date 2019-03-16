@@ -83,8 +83,8 @@ use_elmo = io_utils.parse_bool(use_elmo)
 lm_loss = args.lm_loss
 bucket_auxiliary = args.bucket_auxiliary
 bucket_main = args.bucket_main
-print(bucket_auxiliary)
-print(type(bucket_auxiliary))
+label_bucket = dict(zip(label_type, [bucket_auxiliary, bucket_main]))
+print(label_bucket)
 
 # logger = logger.get_logger("Hierarchical-Shared Model")
 # logger.info("Use Language Model: %s" % use_lm)
