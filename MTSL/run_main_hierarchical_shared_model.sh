@@ -5,7 +5,7 @@ CUDA_VISIBLE_DEVICES=0 python main_hierarchical_shared_model.py --rnn_mode LSTM 
  --embedding_path "data/embedding/glove_embedding.txt" --option_path "data/embedding/elmo_option.json" \
  --weight_path "data/embedding/elmo_weight.hdf5" --word2index_path "output/hierarchical_shared_model/chunk/word2index" \
  --out_path "output/hierarchical_shared_model/chunk" --use_crf "True" --use_lm "True" --use_elmo "True" \
- --label_type "chunk" "fgner" \
+ --lm_mode "shared" --label_type "chunk" "fgner" \
  --bucket_auxiliary 5 10 15 20 25 30 40 50 60 70 80 \
  --bucket_main 5 10 15 20 25 30 40 50 60 70 80 \
  --train "data/chunk/train.chunk" "data/fgner/train.fgner" \
