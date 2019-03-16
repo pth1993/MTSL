@@ -82,6 +82,7 @@ use_crf = io_utils.parse_bool(use_crf)
 use_lm = io_utils.parse_bool(use_lm)
 use_elmo = io_utils.parse_bool(use_elmo)
 lm_loss = args.lm_loss
+lm_mode = args.lm_mode
 bucket_auxiliary = args.bucket_auxiliary
 bucket_main = args.bucket_main
 label_bucket = dict(zip(label_type, [bucket_auxiliary, bucket_main]))
@@ -135,7 +136,7 @@ logger.info("constructing network...")
 network = hierarchical_shared_model.HierarchicalSharedModel(
     embedd_dim, word_word2index.size(), char_dim, char_word2index.size(), num_labels, num_filters, window, rnn_mode,
     hidden_size, num_layers, embedd_word=word_table, p_in=p_in, p_out=p_out, p_rnn=p_rnn, lm_loss=lm_loss,
-    bigram=bigram, use_crf=use_crf, use_elmo=use_elmo, use_lm=use_lm)
+    bigram=bigram, use_crf=use_crf, use_elmo=use_elmo, use_lm=use_lm, lm_mode=lm_mode)
 network.to(device)
 optim = SGD(network.parameters(), lr=learning_rate, momentum=momentum, weight_decay=gamma, nesterov=True)
 logger.info("Network: %s, num_layer=%d, hidden=%d, filter=%d, crf=%s" % (
