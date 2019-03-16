@@ -3,16 +3,17 @@ import torch
 import time
 import uuid
 from torch.optim import SGD
+from scipy.stats import bernoulli
 import argparse
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/utils')
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/model')
-import logger, embedding, io_utils, hierarchical_shared_model, writer
+import logger, embedding, io_utils, embedding_shared_model, writer
 import warnings
 
 warnings.filterwarnings("ignore")
 uid = uuid.uuid4().hex[:6]
 
-parser = argparse.ArgumentParser(description='Hierarchical-Shared Model')
+parser = argparse.ArgumentParser(description='Embedding-Shared Model')
 parser.add_argument('--rnn_mode', choices=['RNN', 'LSTM', 'GRU'], help='architecture of rnn', required=True)
 parser.add_argument('--num_epochs', type=int, default=100, help='Number of training epochs')
 parser.add_argument('--batch_size', type=int, default=16, help='Number of sentences in each batch')
@@ -92,7 +93,7 @@ print("use_crf: %s" % use_crf)
 print("use_elmo: %s" % use_elmo)
 lm_loss = args.lm_loss
 
-logger = logger.get_logger("Hierarchical-Shared Model")
+logger = logger.get_logger("Embedding-Shared Model")
 embedd_dict, embedd_dim = embedding.load_embedding_dict(embedding_path)
 logger.info("Creating Word2Indexs")
 word_word2index, char_word2index, label_word2index_list, = \
@@ -135,7 +136,7 @@ else:
     word_table = io_utils.construct_word_embedding_table(embedd_dict, embedd_dim, word_word2index)
 
 logger.info("constructing network...")
-network = hierarchical_shared_model.HierarchicalSharedModel(
+network = embedding_shared_model.EmbeddingSharedModel(
     embedd_dim, word_word2index.size(), char_dim, char_word2index.size(), num_labels, num_filters, window, rnn_mode,
     hidden_size, num_layers, embedd_word=word_table, p_in=p_in, p_out=p_out, p_rnn=p_rnn, lm_loss=lm_loss,
     bigram=bigram, use_crf=use_crf, use_elmo=use_elmo, use_lm=use_lm)
@@ -163,51 +164,48 @@ lr = learning_rate
 for epoch in range(1, num_epochs + 1):
     print('Epoch %d (%s, learning rate=%.4f, decay rate=%.4f (schedule=%d)): ' % (
         epoch, rnn_mode, lr, decay_rate, schedule))
+    start_time = time.time()
     train_err = 0.
     train_total = 0.
     num_back = 0
     network.train()
-    for i in range(len(label_type)):
-        start_time = time.time()
-        if i == (len(label_type) - 1):
+    turn_list = bernoulli.rvs(float(num_batches[-1]) / sum(num_batches), size=sum(num_batches))
+    batch = 0
+    for turn in turn_list:
+        batch += 1
+        if turn == 1:
             main_task = True
         else:
             main_task = False
-        for batch in range(1, num_batches[i] + 1):
-            if use_lm:
-                word, char, labels, masks, lengths, word_fw, word_bw = \
-                    io_utils.get_batch_variable(data_train[i], batch_size, use_lm=use_lm)
-            else:
-                word, char, labels, masks, lengths = \
-                    io_utils.get_batch_variable(data_train[i], batch_size, use_lm=use_lm)
-                word_fw = None
-                word_bw = None
-            optim.zero_grad()
-            if use_crf:
-                loss = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
-            else:
-                loss, _ = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
-            loss.backward()
-            optim.step()
-            num_inst = word.size(0)
-            train_err += loss.data * num_inst
-            train_total += num_inst
-            time_ave = (time.time() - start_time) / batch
-            time_left = (num_batches[i] - batch) * time_ave
-            # update log
-            if batch % 100 == 0:
-                sys.stdout.write("\b" * num_back)
-                sys.stdout.write(" " * num_back)
-                sys.stdout.write("\b" * num_back)
-                log_info = 'train: %d/%d loss: %.4f, time left (estimated): %.2fs' % (
-                    batch, num_batches[i], train_err / train_total, time_left)
-                sys.stdout.write(log_info)
-                sys.stdout.flush()
-                num_back = len(log_info)
-        sys.stdout.write("\b" * num_back)
-        sys.stdout.write(" " * num_back)
-        sys.stdout.write("\b" * num_back)
-        print('train: %d loss: %.4f, time: %.2fs' % (num_batches[i], train_err / train_total, time.time() - start_time))
+        if use_lm:
+            word, char, labels, masks, lengths, word_fw, word_bw = \
+                io_utils.get_batch_variable(data_train[turn], batch_size, use_lm=use_lm)
+        else:
+            word, char, labels, masks, lengths = \
+                io_utils.get_batch_variable(data_train[turn], batch_size, use_lm=use_lm)
+            word_fw = None
+            word_bw = None
+        optim.zero_grad()
+        if use_crf:
+            loss = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
+        else:
+            loss, _ = network.loss(word, char, labels, main_task, word_fw, word_bw, masks, leading_symbolic=1)
+        loss.backward()
+        optim.step()
+        num_inst = word.size(0)
+        train_err += loss.data * num_inst
+        train_total += num_inst
+        time_ave = (time.time() - start_time) / batch
+        time_left = (sum(num_batches) - batch) * time_ave
+        if batch % 100 == 0:
+            sys.stdout.write("\b" * num_back)
+            sys.stdout.write(" " * num_back)
+            sys.stdout.write("\b" * num_back)
+            log_info = 'train: %d/%d loss: %.4f, time left (estimated): %.2fs' % (
+                batch, sum(num_batches), train_err / train_total, time_left)
+            sys.stdout.write(log_info)
+            sys.stdout.flush()
+            num_back = len(log_info)
     acc_list = []
     precision_list = []
     recall_list = []

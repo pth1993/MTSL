@@ -13,7 +13,7 @@ import warnings
 warnings.filterwarnings("ignore")
 uid = uuid.uuid4().hex[:6]
 
-parser = argparse.ArgumentParser(description='Embedding Shared Model')
+parser = argparse.ArgumentParser(description='RNN-Shared Model')
 parser.add_argument('--rnn_mode', choices=['RNN', 'LSTM', 'GRU'], help='architecture of rnn', required=True)
 parser.add_argument('--num_epochs', type=int, default=100, help='Number of training epochs')
 parser.add_argument('--batch_size', type=int, default=16, help='Number of sentences in each batch')
@@ -93,7 +93,7 @@ print("use_crf: %s" % use_crf)
 print("use_elmo: %s" % use_elmo)
 lm_loss = args.lm_loss
 
-logger = logger.get_logger("Hierarchical-Shared Model")
+logger = logger.get_logger("RNN-Shared Model")
 embedd_dict, embedd_dim = embedding.load_embedding_dict(embedding_path)
 logger.info("Creating Word2Indexs")
 word_word2index, char_word2index, label_word2index_list, = \
