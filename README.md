@@ -33,7 +33,7 @@ sequence labeling tasks.
 | RNN-Shared Model (ELMo)                         | -      | 82.60     | 82.09        | 81.77 | 82.12            |
 | Embedding-Shared Model (ELMo)                   | -      | 82.75     | 82.45        | 82.34 | 81.94            |
 | Hierarchical-Shared Model (ELMo)                | -      | **83.04** | 82.72        | 82.76 | 82.96            |
-| Base Model (GloVe) + LM [Rei, 2017]             | 81.77  | -         | -            | -     | -                |
+| Base Model (GloVe) + LM                         | 81.77  | -         | -            | -     | -                |
 | RNN-Shared Model (GloVe) + Shared-LM            | -      | 80.83     | 81.34        | 80.69 | 81.45            |
 | Embedding-Shared Model (GloVe) + Shared-LM      | -      | 81.54     | 81.95        | 81.86 | 81.34            |
 | Hierarchical-Shared Model (GloVe) + Shared-LM   | -      | 81.69     | **81.96**    | 81.42 | 81.78            |
