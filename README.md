@@ -1,6 +1,6 @@
 # MTSL- Multi-Task Sequence Labeling Toolkit
 -----------------------------------------------------------------
-Code by **Thai-Hoang Pham** at Ohio State University.
+Code by [**Thai-Hoang Pham**](http://www.hoangpt.com/) at Ohio State University.
 
 ## 1. Introduction
 **MTSL** is a Python implementation of the multi-task sequence labeling models described in a paper [Multi-Task 
