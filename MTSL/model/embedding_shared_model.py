@@ -9,10 +9,12 @@ import utils
 class EmbeddingSharedModel(nn.Module):
     def __init__(self, word_dim, num_words, char_dim, num_chars, num_labels, num_filters,
                  kernel_size, rnn_mode, hidden_size, num_layers, embedd_word=None, p_in=0.33, p_out=0.5,
-                 p_rnn=(0.5, 0.5), lm_loss=0.05, bigram=True, use_crf=True, use_lm=True, use_elmo=False):
+                 p_rnn=(0.5, 0.5), lm_loss=0.05, bigram=True, use_crf=True, use_lm=True, use_elmo=False,
+                 lm_mode='unshared'):
         super(EmbeddingSharedModel, self).__init__()
         self.lm_loss = lm_loss
         self.use_elmo = use_elmo
+        self.lm_mode = lm_mode
         if self.use_elmo:
             option_file, weight_file = embedd_word
             self.elmo = Elmo(option_file, weight_file, 2, dropout=0)
@@ -49,10 +51,14 @@ class EmbeddingSharedModel(nn.Module):
             self.dense_softmax_1 = nn.Linear(hidden_size * 2, num_labels[0])
             self.dense_softmax_2 = nn.Linear(hidden_size * 2, num_labels[1])
         if self.use_lm:
-            self.dense_fw_1 = nn.Linear(hidden_size, num_words)
-            self.dense_bw_1 = nn.Linear(hidden_size, num_words)
-            self.dense_fw_2 = nn.Linear(hidden_size, num_words)
-            self.dense_bw_2 = nn.Linear(hidden_size, num_words)
+            if self.lm_mode == 'unshared':
+                self.dense_fw_1 = nn.Linear(hidden_size, num_words)
+                self.dense_bw_1 = nn.Linear(hidden_size, num_words)
+                self.dense_fw_2 = nn.Linear(hidden_size, num_words)
+                self.dense_bw_2 = nn.Linear(hidden_size, num_words)
+            elif self.lm_mode == 'shared':
+                self.dense_fw = nn.Linear(hidden_size, num_words)
+                self.dense_bw = nn.Linear(hidden_size, num_words)
         self.logsoftmax = nn.LogSoftmax(dim=1)
         self.nll_loss = nn.NLLLoss(size_average=False, reduce=False)
 
@@ -112,12 +118,18 @@ class EmbeddingSharedModel(nn.Module):
         # output from rnn [batch, length, tag_space]
         if self.use_lm:
             output, _, mask, length, lm_fw, lm_bw = self._get_rnn_output(input_word, input_char, main_task, mask, hx=hx)
-            if main_task:
-                lm_fw = self.dense_fw_2(lm_fw)
-                lm_bw = self.dense_bw_2(lm_bw)
+            if self.lm_mode == 'unshared':
+                if main_task:
+                    lm_fw = self.dense_fw_2(lm_fw)
+                    lm_bw = self.dense_bw_2(lm_bw)
+                else:
+                    lm_fw = self.dense_fw_1(lm_fw)
+                    lm_bw = self.dense_bw_1(lm_bw)
+            elif self.lm_mode == 'shared':
+                lm_fw = self.dense_fw(lm_fw)
+                lm_bw = self.dense_bw(lm_bw)
             else:
-                lm_fw = self.dense_fw_1(lm_fw)
-                lm_bw = self.dense_bw_1(lm_bw)
+                raise ValueError('Unknown LM mode: %s' % self.lm_mode)
             output_size = lm_fw.size()
             output_size = (output_size[0] * output_size[1], output_size[2])
             lm_fw = lm_fw.view(output_size)

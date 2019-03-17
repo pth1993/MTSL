@@ -40,6 +40,7 @@ parser.add_argument('--use_crf', help='use crf')
 parser.add_argument('--use_lm', help='use lm')
 parser.add_argument('--use_elmo', help='use elmo')
 parser.add_argument('--lm_loss', type=float, default=0.05, help='lm loss scale')
+parser.add_argument('--lm_mode', choices=['shared', 'unshared'], help='lm mode')
 parser.add_argument('--label_type', nargs=2, help='label type')
 parser.add_argument('--bucket_auxiliary', type=int, nargs='+', help='bucket auxiliary')
 parser.add_argument('--bucket_main', type=int, nargs='+', help='bucket main')
@@ -82,12 +83,15 @@ use_crf = io_utils.parse_bool(use_crf)
 use_lm = io_utils.parse_bool(use_lm)
 use_elmo = io_utils.parse_bool(use_elmo)
 lm_loss = args.lm_loss
+lm_mode = args.lm_mode
 bucket_auxiliary = args.bucket_auxiliary
 bucket_main = args.bucket_main
 label_bucket = dict(zip(label_type, [bucket_auxiliary, bucket_main]))
 
 logger = logger.get_logger("RNN-Shared Model")
 logger.info("Use Language Model: %s" % use_lm)
+if use_lm:
+    logger.info("Language Model mode: %s" % lm_mode)
 logger.info("Use CRF: %s" % use_crf)
 logger.info("Use ELMo: %s" % use_elmo)
 embedd_dict, embedd_dim = embedding.load_embedding_dict(embedding_path)
@@ -135,7 +139,7 @@ logger.info("constructing network...")
 network = rnn_shared_model.RNNSharedModel(
     embedd_dim, word_word2index.size(), char_dim, char_word2index.size(), num_labels, num_filters, window, rnn_mode,
     hidden_size, num_layers, embedd_word=word_table, p_in=p_in, p_out=p_out, p_rnn=p_rnn, lm_loss=lm_loss,
-    bigram=bigram, use_crf=use_crf, use_elmo=use_elmo, use_lm=use_lm)
+    bigram=bigram, use_crf=use_crf, use_elmo=use_elmo, use_lm=use_lm, lm_mode=lm_mode)
 network.to(device)
 optim = SGD(network.parameters(), lr=learning_rate, momentum=momentum, weight_decay=gamma, nesterov=True)
 logger.info("Network: %s, num_layer=%d, hidden=%d, filter=%d, crf=%s" % (

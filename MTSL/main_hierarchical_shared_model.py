@@ -89,6 +89,8 @@ label_bucket = dict(zip(label_type, [bucket_auxiliary, bucket_main]))
 
 logger = logger.get_logger("Hierarchical-Shared Model")
 logger.info("Use Language Model: %s" % use_lm)
+if use_lm:
+    logger.info("Language Model mode: %s" % lm_mode)
 logger.info("Use CRF: %s" % use_crf)
 logger.info("Use ELMo: %s" % use_elmo)
 embedd_dict, embedd_dim = embedding.load_embedding_dict(embedding_path)
