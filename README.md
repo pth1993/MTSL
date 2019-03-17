@@ -162,6 +162,6 @@ Recognition"](https://arxiv.org/abs/1708.07241)
 
 ## 5. Contact
 
-**Thai-Hoang Pham** < pham.375@osu.edu >
+[**Thai-Hoang Pham**](http://www.hoangpt.com/) < pham.375@osu.edu >
 
 Ohio State University
