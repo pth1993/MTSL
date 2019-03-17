@@ -42,7 +42,7 @@ sequence labeling tasks.
 | Embedding-Shared Model (ELMo) + Shared-LM       | -      | 82.61     | 82.32        | 82.46 | 82.45            |
 | Hierarchical-Shared Model (ELMo) + Shared-LM    | -      | 82.87     | 82.82        | 82.85 | 82.99            |
 | Hierarchical-Shared Model (GloVe) + Unshared-LM | -      | 81.77     | 81.80        | 81.72 | 81.88            |
-| Hierarchical-Shared Model (ELMo) + Unshared-LM  | -      | 83.35     | 83.14        | 83.06 | 82.82            |
+| Hierarchical-Shared Model (ELMo) + Unshared-LM  | -      | **83.35** | 83.14        | 83.06 | 82.82            |
 
 ## 2. Installation
 
