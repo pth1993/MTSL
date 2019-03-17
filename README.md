@@ -4,8 +4,8 @@ Code by **Thai-Hoang Pham** at Ohio State University.
 
 ## 1. Introduction
 **MTSL** is a Python implementation of the multi-task sequence labeling models described in a paper [Multi-Task 
-Learning with Contextualized Word Representations for Extented Named Entity Recognition] 
-(https://arxiv.org/abs/1902.10118). This toolkit is used for learning one main sequence labeling task with one 
+Learning with Contextualized Word Representations for Extented Named Entity 
+Recognition](https://arxiv.org/abs/1902.10118). This toolkit is used for learning one main sequence labeling task with one 
 auxiliary sequence labeling task and neural language model. It can work with uncontextualized word embeddings 
 (GloVe) or contextualized word embeddings (ELMo). There are three main multi-task sequence labeling models in 
 this toolkit including embedding-shared model, RNN-shared model, and hierarchical-shared model. Figure 1 shows the
