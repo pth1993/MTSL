@@ -12,7 +12,7 @@ this toolkit including embedding-shared model, RNN-shared model, and hierarchica
 architectures of these multi-task models.
 
 <figure>
-    <img src="https://raw.githubusercontent.com/pth1993/MTSL/master/img/models.png" width="500">
+    <img src="https://github.com/pth1993/MTSL/blob/master/img/models.png" width="500">
     <figcaption>Figure 1: Multi-Task Sequence Labeling Models.</figcaption>
 </figure>
 <p>
