@@ -13,7 +13,7 @@ architectures of these multi-task models.
 
 <figure>
     <img src="https://github.com/pth1993/MTSL/blob/master/img/models.png" width="800">
-    <figcaption>**Figure 1**: Multi-Task Sequence Labeling Models.</figcaption>
+    <figcaption>Figure 1: Multi-Task Sequence Labeling Models.</figcaption>
 </figure>
 <p>
 
