@@ -158,7 +158,7 @@ model for both main and auxiliary sequence labeling tasks (choose between shared
 
 [Thai-Hoang Pham, Khai Mai, Nguyen Minh Trung, Nguyen Tuan Duc, Danushka Bolegala, Ryohei Sasano, Satoshi Sekine, 
 "Multi-Task Learning with Contextualized Word Representations for Extented Named Entity 
-Recognition"](https://arxiv.org/abs/1708.07241)
+Recognition"](https://arxiv.org/abs/1902.10118)
 
 ## 5. Contact
 
